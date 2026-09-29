@@ -1,0 +1,13 @@
+[project]
+name = "masters_project"
+r_version = ">=4.5.3"
+
+[dependencies]
+dplyr = "*"
+ggplot2 = "*"
+ggtext = "*"
+gt = "*"
+gtsummary = "*"
+jsonlite = "*"
+languageserver = "*"
+survival = "*"

@@ -1,0 +1,11 @@
+/.uvr/library/
+/.uvr/activate*
+.vscode/
+.private_documents/
+
+data/
+documents/
+presentations/
+proposal_presentation/
+references/
+write-up/

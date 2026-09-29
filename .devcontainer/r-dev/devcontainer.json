@@ -1,0 +1,24 @@
+{
+  "name": "R 4.6 Dev Container",
+  "image": "ghcr.io/rocker-org/devcontainer/r-ver:4.6",
+  "features": {
+    "ghcr.io/rocker-org/devcontainer-features/r-packages:1": {
+      "packages": "tidyverse,data.table,gtsummary,survival,gt"
+    }
+  },
+  "postCreateCommand": "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/eitsupi/arf/releases/latest/download/arf-console-installer.sh | sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "reditorsupport.r",
+        "rdebugger.r-debugger",
+        "posit.air-vscode"
+      ],
+      "settings": {
+        "r.bracketedPaste": true,
+        "r.sessionWatcher": true,
+        "r.rterm.linux": "${userHome}/.local/bin/arf"
+      }
+    }
+  }
+}

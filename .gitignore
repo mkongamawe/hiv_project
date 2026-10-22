@@ -9,3 +9,7 @@ presentations/
 proposal_presentation/
 references/
 write-up/
+work/
+singularity_cache/
+results/
+*.nextflow*

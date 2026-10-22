@@ -17,7 +17,8 @@
       "settings": {
         "r.bracketedPaste": true,
         "r.sessionWatcher": true,
-        "r.rterm.linux": "${userHome}/.local/bin/arf"
+        "r.executablePath": "/usr/local/bin/R",
+        "r.consolePath": "home/rstudio/.cargo/bin/arf"
       }
     }
   }

@@ -34,7 +34,7 @@ process CELLRANGER_COUNT {
     // Load the module
     module 'cellranger/10.0.0'
 
-    publishDir "${params.outdir}/{params.cohort}/cellranger", mode: 'copy'
+    publishDir "${params.outdir}/${params.cohort}/cellranger", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastqs)

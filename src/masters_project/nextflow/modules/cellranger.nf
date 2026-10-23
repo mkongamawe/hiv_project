@@ -17,7 +17,7 @@ process STAGE_FASTQ {
     script:
     """
     ln -s \$(realpath ${reads[0]}) ${sample_id}_S1_L001_R1_001.fastq.gz
-    ln -s \$(realpath ${reads[1]}) ${sample_id}_S1_L001_R1_002.fastq.gz
+    ln -s \$(realpath ${reads[1]}) ${sample_id}_S1_L001_R2_001.fastq.gz
     """
 
     stub:
@@ -28,7 +28,7 @@ process STAGE_FASTQ {
 }
 
 process CELLRANGER_COUNT {
-    tag "sample_id"
+    tag "$sample_id"
     label "process_high"
 
     // Load the module

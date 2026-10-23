@@ -2,17 +2,19 @@
 nextflow.enable.dsl = 2
 
 // Import required processes
-include { runFastQc; runMultiQc } from './modules/data_qc.nf'
+include { STAGE_FASTQ; CELLRANGER_COUNT } from './modules/cellranger.nf'
 
 workflow {
 
     // Create a QC header
     log.info """
     ======================================
-    Q C  P I P E L I N E
+    S C R N A - S E Q  P I P E L I N E
     ======================================
-    Input Reads: ${params.reads}
-    Output Dir : ${params.outdir}
+    Cohort        : ${params.cohort}
+    Input Reads   : ${params.reads}
+    Transcriptome : ${params.transcriptome}
+    Output Dir    : ${params.outdir}/${params.cohort}
     ======================================
     """.stripIndent()
 
@@ -26,9 +28,12 @@ workflow {
         }
         .groupTuple(sort: true)
 
-    // 2. Run fastqc
-    runFastQc(reads_ch)
+    // 2. Load the 10x reference directory as a value channel
+    transcriptome_ch = channel.value(file(params.transcriptome, type: 'dir', checkIfExists: true))
 
-    // 3. Collect all fastqc files and pass to multiqc
-    runMultiQc(runFastQc.out.qc_files.collect())
+    // 3. Rename files to match filenames
+    STAGE_FASTQ(reads_ch)
+
+    // 4. Run Cell Ranger count
+    CELLRANGER_COUNT(STAGE_FASTQ.out.staged_reads, transcriptome_ch)
 }

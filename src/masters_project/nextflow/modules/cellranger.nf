@@ -51,6 +51,7 @@ process CELLRANGER_COUNT {
         --id=${sample_id} \\
         --transcriptome=${transcriptome} \\
         --fastqs=. \\
+        --create-bam=false \\
         --sample=${sample_id} \\
         --localcores=${task.cpus} \\
         --localmem=${task.memory.toGiga()}

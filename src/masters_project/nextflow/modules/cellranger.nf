@@ -5,30 +5,45 @@
  */
 
 process STAGE_FASTQ {
-    tag "$sample_id"
+    tag "$biosample"
     label 'process_single'
     
     input:
-    tuple val(sample_id), path(reads)
+    tuple val(biosample), path(reads)
 
     output:
-    tuple val(sample_id), path("${sample_id}_S1_L001_R*.fastq.gz"), emit: staged_reads
+    tuple val(biosample), path("${biosample}_S1_L*_R*.fastq.gz"), emit: staged_reads
 
     script:
     """
-    ln -s \$(realpath ${reads[0]}) ${sample_id}_S1_L001_R1_001.fastq.gz
-    ln -s \$(realpath ${reads[1]}) ${sample_id}_S1_L001_R2_001.fastq.gz
+    # Sort the files so reads 1 and 2 stay paired
+    sorted_reads=(\$(echo "${reads}" | tr ' ' '\\n' | sort))
+
+    count=1
+    # Loop through the paired files at a time
+    for (( i = 0; i<\${#sorted_reads[@]}; i+=2 )); do
+        r1=\${sorted_reads[i]}
+        r2=\${sorted_reads[i+1]}
+
+        # Format a fake lane number
+        lane=\$(printf "L%03d" \$count)
+
+        ln -s \$(realpath \$r1) ${biosample}_S1_\${lane}_R1_001.fastq.gz
+        ln -s \$(realpath \$r2) ${biosample}_S1_\${lane}_R2_001.fastq.gz
+
+        ((count++))
+    done
     """
 
     stub:
     """
-    touch ${sample_id}_S1_L001_R1_001.fastq.gz
-    touch ${sample_id}_S1_L001_R2_001.fastq.gz
+    touch ${biosample}_S1_L001_R1_001.fastq.gz
+    touch ${biosample}_S1_L001_R2_001.fastq.gz
     """
 }
 
 process CELLRANGER_COUNT {
-    tag "$sample_id"
+    tag "$biosample"
     label "process_high"
 
     // Load the module
@@ -37,32 +52,32 @@ process CELLRANGER_COUNT {
     publishDir "${params.outdir}/${params.cohort}/cellranger", mode: 'copy'
 
     input:
-    tuple val(sample_id), path(fastqs)
+    tuple val(biosample), path(fastqs)
     path transcriptome
 
     output:
-    path "${sample_id}/outs/*"                              , emit: outs
-    path "${sample_id}/outs/web_summary.html"               , emit: html
-    path "${sample_id}/outs/filtered_feature_bc_matrix"     , emit: matrix
+    path "${biosample}/outs/*"                              , emit: outs
+    path "${biosample}/outs/web_summary.html"               , emit: html
+    path "${biosample}/outs/filtered_feature_bc_matrix"     , emit: matrix
 
     script:
     """
     cellranger count \\
-        --id=${sample_id} \\
+        --id=${biosample} \\
         --transcriptome=${transcriptome} \\
         --fastqs=. \\
         --create-bam=false \\
-        --sample=${sample_id} \\
+        --sample=${biosample} \\
         --localcores=${task.cpus} \\
         --localmem=${task.memory.toGiga()}
     """
 
     stub:
     """
-    mkdir -p ${sample_id}/outs/filtered_feature_bc_matrix
-    touch ${sample_id}/outs/web_summary.html
-    touch ${sample_id}/outs/dummy_data.txt
+    mkdir -p ${biosample}/outs/filtered_feature_bc_matrix
+    touch ${biosample}/outs/web_summary.html
+    touch ${biosample}/outs/dummy_data.txt
 
-    echo "Dry run complete for ${sample_id} using ${task.cpus} CPUs and ${task.memory.toGiga()} GB RAM"
+    echo "Dry run complete for ${biosample} using ${task.cpus} CPUs and ${task.memory.toGiga()} GB RAM"
     """
 }

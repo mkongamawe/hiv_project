@@ -1,8 +1,9 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
-// Import required processes
-include { STAGE_FASTQ; CELLRANGER_COUNT } from './modules/cellranger.nf'
+include { INPUT_PREPROCESSING  } from './subworkflows/input_preprocessing.nf'
+include { CELLRANGER_ALIGNMENT } from './subworkflows/cellranger_alignment.nf'
+include { FASTQC; MULTIQC      } from './modules/qc.nf'
 
 workflow {
 
@@ -11,48 +12,56 @@ workflow {
     ======================================
     S C R N A - S E Q  P I P E L I N E
     ======================================
-    Cohort        : ${params.cohort}
-    Metadata CSV  : ${params.metadata}
-    Input Reads   : ${params.reads}
-    Transcriptome : ${params.transcriptome}
-    Output Dir    : ${params.outdir}/${params.cohort}
-    ======================================
+    Mode           : ${params.mode}
+    Cohort         : ${params.cohort}
+    BCL Input Dir  : ${params.bcl_dir ?: 'Skipped (Using FASTQs)'}
+    Input Reads    : ${params.reads}
+    SRA Metadata   : ${params.metadata ?: 'None'}
+    Multi Mapping  : ${params.multi_samples ?: 'N/A'}
+    Transcriptome  : ${params.transcriptome}
+    Probe Set      : ${params.mode == 'multi' ? params.probe_set : 'N/A'}
+    Skip FastQC    : ${params.skip_fastqc}
+    Output Dir     : ${params.outdir}/${params.cohort}
+    ==================================================
     """.stripIndent()
 
-    // 1. Read the metadata CSV and extract: SRR, Biosample
-    meta_ch = channel
-        .fromPath(params.metadata, checkIfExists: true)
-        .splitCsv(header: true)
-        .map { row -> tuple(row.Run, row.BioSample) }
+    // 1. Preprocess Inputs (BCL conversion if requested + Regex FASTQ staging)
+    INPUT_PREPROCESSING(
+        params.bcl_dir,
+        params.bcl_samplesheet,
+        params.reads,
+        params.metadata
+    )
 
-    // 2. Create input channel grouping files by SRR ID
-    reads_ch = channel
-        .fromPath(params.reads, checkIfExists: true, type: 'file')
-        .map { file -> 
-            // Strip the extensions _1, _2 to group files by SRR accession}
-            def srr = file.name.replaceAll(/(_[123])?\.f(ast)?q\.gz$/, '')
-            tuple(srr, file)
-        }
-        .groupTuple(sort: true)
+    // 2. Optional FastQC on clean/staged reads
+    fastqc_zip_ch = channel.empty()
+    if (!params.skip_fastqc) {
+        FASTQC(INPUT_PREPROCESSING.out.reads)
+        fastqc_zip_ch = FASTQC.out.zip.flatten()
+    }
 
-    // 3. Join metadata with files on the SRR key, and then regroup by BioSample
-    biosample_ch = meta_ch.join(reads_ch)
-        
-        // Format after join: [SRR, Biosample, [read1, read2 , ...]]
-        .map { srr, biosample, reads -> tuple(biosample, reads) }
-
-        // Group by Biosample -> [BioSample, [[read1, read 2]]]
-        .groupTuple()
-
-        // Flatten the nested file list
-        .map { biosample, nested_reads -> tuple(biosample, nested_reads.flatten()) }
-
-    // 4. Load the 10x reference directory as a value channel
+    // 3. Prepare Reference Value Channels
     transcriptome_ch = channel.value(file(params.transcriptome, type: 'dir', checkIfExists: true))
+    probe_set_ch     = params.mode == 'multi' 
+        ? channel.value(file(params.probe_set, type: 'file', checkIfExists: true)) 
+        : channel.empty()
 
-    // 5. Stage the samples
-    STAGE_FASTQ(biosample_ch)
+    // 4. Run Cell Ranger (Count or Multi)
+    CELLRANGER_ALIGNMENT(
+        INPUT_PREPROCESSING.out.reads,
+        params.mode,
+        transcriptome_ch,
+        probe_set_ch,
+        params.multi_samples
+    )
 
-    // 4. Run Cell Ranger count
-    CELLRANGER_COUNT(STAGE_FASTQ.out.staged_reads, transcriptome_ch)
+    // 5. Aggregate all QC outputs (BCL reports + FastQC + Cell Ranger summaries) into MultiQC
+    if (!params.skip_multiqc) {
+        all_qc_ch = INPUT_PREPROCESSING.out.bcl_reports
+            .mix(fastqc_zip_ch)
+            .mix(CELLRANGER_ALIGNMENT.out.qc_metrics)
+            .collect()
+
+        MULTIQC(all_qc_ch)
+    }
 }

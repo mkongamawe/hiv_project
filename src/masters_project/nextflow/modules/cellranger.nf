@@ -1,18 +1,23 @@
 /*
- * Cellranger requires strict naming convention.
- * The first process converts the names to the ones
- * required by cellranger for procesisng
+ * This module runs cellranger on the samples
+ * It has 3 processes:
+ * STAGE_FASTQ - Renames non-compliant FASTQ files into
+ *             - the format that cellranger requires
+ *             - e.g.(_S1_L001_R1_001.fastq.gz)
+ * CELLRANGER_COUNT - process for stanfard 3' single-cell workflow
+ * CELLRANGER_MULTI - This is for Flex multiplexed workflows
+ *                  - It dynamically constructs the multi_config.csv inside the task directory
  */
 
 process STAGE_FASTQ {
-    tag "$biosample"
+    tag "$sample_id"
     label 'process_single'
     
     input:
-    tuple val(biosample), path(reads)
+    tuple val(sample_id), path(reads)
 
     output:
-    tuple val(biosample), path("${biosample}_S1_L*_R*.fastq.gz"), emit: staged_reads
+    tuple val(sample_id), path("${sample_id}_S1_L*_R*.fastq.gz"), emit: staged_reads
 
     script:
     """
@@ -28,8 +33,8 @@ process STAGE_FASTQ {
         # Format a fake lane number
         lane=\$(printf "L%03d" \$count)
 
-        ln -s \$(realpath \$r1) ${biosample}_S1_\${lane}_R1_001.fastq.gz
-        ln -s \$(realpath \$r2) ${biosample}_S1_\${lane}_R2_001.fastq.gz
+        ln -s \$(realpath \$r1) ${sample_id}_S1_\${lane}_R1_001.fastq.gz
+        ln -s \$(realpath \$r2) ${sample_id}_S1_\${lane}_R2_001.fastq.gz
 
         ((count++))
     done
@@ -37,47 +42,94 @@ process STAGE_FASTQ {
 
     stub:
     """
-    touch ${biosample}_S1_L001_R1_001.fastq.gz
-    touch ${biosample}_S1_L001_R2_001.fastq.gz
+    touch ${sample_id}_S1_L001_R1_001.fastq.gz
+    touch ${sample_id}_S1_L001_R2_001.fastq.gz
     """
 }
 
 process CELLRANGER_COUNT {
-    tag "$biosample"
+    tag "$sample_id"
     label "process_high"
-
-    // Load the module
-    module 'cellranger/10.0.0'
 
     publishDir "${params.outdir}/${params.cohort}/cellranger", mode: 'copy'
 
     input:
-    tuple val(biosample), path(fastqs)
+    tuple val(sample_id), path(fastqs)
     path transcriptome
 
     output:
-    path "${biosample}/outs/*"                              , emit: outs
-    path "${biosample}/outs/web_summary.html"               , emit: html
-    path "${biosample}/outs/filtered_feature_bc_matrix"     , emit: matrix
+    path "${sample_id}/outs/*"                        , emit: outs
+    path "${sample_id}/outs/web_summary.html"         , emit: html
+    path "${sample_id}/outs/metrics_summary.csv"      , emit: metrics
+    path "${sample_id}/outs/filtered_feature_bc_matrix", emit: matrix
 
     script:
     """
     cellranger count \\
-        --id=${biosample} \\
+        --id=${sample_id} \\
         --transcriptome=${transcriptome} \\
         --fastqs=. \\
-        --create-bam=false \\
-        --sample=${biosample} \\
+        --create-bam=${params.create_bam} \\
+        --sample=${sample_id} \\
         --localcores=${task.cpus} \\
         --localmem=${task.memory.toGiga()}
     """
 
     stub:
     """
-    mkdir -p ${biosample}/outs/filtered_feature_bc_matrix
-    touch ${biosample}/outs/web_summary.html
-    touch ${biosample}/outs/dummy_data.txt
+    mkdir -p ${sample_id}/outs/filtered_feature_bc_matrix
+    touch ${sample_id}/outs/web_summary.html
+    touch ${sample_id}/outs/dummy_data.txt
+    """
+}
 
-    echo "Dry run complete for ${biosample} using ${task.cpus} CPUs and ${task.memory.toGiga()} GB RAM"
+process CELLRANGER_MULTI {
+    tag "$pool_id"
+    label 'process_high'
+
+    publishDir "${params.outdir}/{params.cohort}/cellranger_multi", mode: 'copy'
+
+    input:
+    tuple val(pool_id), path(fastqs), val(sample_rows)
+    path transcriptome
+    path probe_set
+
+    output:
+    path "${pool_id}/outs/*"                                                        , emit: outs
+    path "${pool_id}/outs/per_sample_outs/*/web_summary.html"                       , emit: html
+    path "${pool_id}/outs/per_sample_outs/*/metrics_summary.csv"                    , emit: metrics
+    path "${pool_id}/outs/per_sample_outs/*/count/sample_filtered_feature_bc_matrix", emit: matrices
+
+    script:
+    // Format the sample block from the grouped metadata
+    def samples_block = sample_rows.join('\n')
+    """
+    cat <<EOF > multi_config.csv
+[gene-expression]
+reference,\$(realpath ${transcriptome})
+probe-set,\$(realpath ${probe_set})
+create-bam,${params.create_bam}
+
+[libraries]
+fastq_id,fastqs,feature_types
+${pool_id},\$(pwd),Gene Expression
+
+[samples]
+sample_id,probe_barcode_ids
+${samples_block}
+EOF
+
+    cellranger multi \\
+        --id=${pool_id} \\
+        --csv=multi_config.csv \\
+        --localcores=${task.cpus} \\
+        --localmem=${task.memory.toGiga()}
+    """
+
+    stub:
+    """
+    mkdir -p ${pool_id}/outs/per_sample_outs/Sample1/count/sample_filtered_feature_bc_matrix
+    touch ${pool_id}/outs/per_sample_outs/Sample1/web_summary.html
+    touch ${pool_id}/outs/per_sample_outs/Sample1/metrics_summary.csv
     """
 }

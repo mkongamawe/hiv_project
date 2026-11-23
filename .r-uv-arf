@@ -1,5 +1,20 @@
 #!/bin/bash
+# Launch the arf R console inside this project's uvr environment.
+# VS Code starts this without loading your shell profile, so add the
+# folders where R (miniforge r_env), uvr and arf live to PATH explicitly.
+export PATH="$HOME/miniforge3/envs/r_env/bin:$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# Must be set BEFORE `uvr activate`: without it uvr puts the whole conda
+# lib/ folder on DYLD_LIBRARY_PATH, whose libiconv breaks xml2/ggtext.
+export R_HOME="$HOME/miniforge3/envs/r_env/lib/R"
+
+# Ensure a UTF-8 locale so characters like "µ" in scripts are read correctly.
+export LANG="${LANG:-en_US.UTF-8}"
 
 cd "$(dirname "$0")" || exit 1
 
-exec uv run --no-project arf "$@"
+# Point R at the project's .uvr/library
+activate="$(uvr activate --emit sh)" || { echo "uvr activate failed" >&2; exit 1; }
+eval "$activate"
+
+exec arf "$@"

@@ -46,12 +46,17 @@ workflow {
         ? channel.value(file(params.probe_set, type: 'file', checkIfExists: true)) 
         : channel.empty()
 
+    feature_ref_ch = params.feature_ref
+        ? channel.value(file(params.feature_ref, type: 'file', checkIfExists: true))
+        : channel.value([])
+
     // 4. Run Cell Ranger (Count or Multi)
     CELLRANGER_ALIGNMENT(
         INPUT_PREPROCESSING.out.reads,
         params.mode,
         transcriptome_ch,
         probe_set_ch,
+        feature_ref_ch, 
         params.multi_samples
     )
 

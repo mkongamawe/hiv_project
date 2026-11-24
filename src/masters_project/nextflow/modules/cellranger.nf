@@ -104,9 +104,10 @@ process CELLRANGER_MULTI {
     publishDir "${params.outdir}/${params.cohort}/cellranger_multi", mode: 'copy'
 
     input:
-    tuple val(pool_id), path(fastqs), val(sample_rows)
+    tuple val(pool_id), path(fastqs), val(library_rows), val(sample_rows)
     path transcriptome
     path probe_set
+    path feature_ref
 
     output:
     path "${pool_id}/outs/*"                                                        , emit: outs
@@ -115,8 +116,9 @@ process CELLRANGER_MULTI {
     path "${pool_id}/outs/per_sample_outs/*/count/sample_filtered_feature_bc_matrix", emit: matrices
 
     script:
-    // Format the sample block from the grouped metadata
-    def samples_block = sample_rows.join('\n')
+    def samples_block   = sample_rows.join('\n')
+    def libraries_block = library_rows.join('\n').replace('FASTQ_DIR', '$(pwd)')
+    def feature_block   = feature_ref ? "[feature]\nreference,\$(realpath ${feature_ref})\n" : ''
     """
     cat <<EOF > multi_config.csv
 [gene-expression]
@@ -124,9 +126,10 @@ reference,\$(realpath ${transcriptome})
 probe-set,\$(realpath ${probe_set})
 create-bam,${params.create_bam}
 
+${feature_block}
 [libraries]
 fastq_id,fastqs,feature_types
-${pool_id},\$(pwd),Gene Expression
+${libraries_block}
 
 [samples]
 sample_id,probe_barcode_ids
@@ -137,7 +140,7 @@ EOF
         --id=${pool_id} \\
         --csv=multi_config.csv \\
         --localcores=${task.cpus} \\
-        --localmem=${task.memory.toGiga()}
+        --localmem=${task.memory.toGiga() - 4}
     """
 
     stub:

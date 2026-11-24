@@ -11,6 +11,7 @@ workflow CELLRANGER_ALIGNMENT {
     mode             // 'count' or 'multi'
     transcriptome_ch // value channel (dir)
     probe_set_ch     // value channel (file) or empty
+    feature_ref_ch   // value channel (file) or [] when no Antibody Capture library
     multi_samples    // path to CSV (pool_id,sample_id,probe_barcode_ids)
 
     main:
@@ -36,9 +37,21 @@ workflow CELLRANGER_ALIGNMENT {
             .groupTuple() // -> tuple(pool_id, ["Sample1,BC001", "Sample2,BC002", ...])
 
         // Join the FASTQ files for each pool_id
-        multi_input_ch = reads_ch.join(pool_map_ch, failOnMismatch: true)
+        // Merge <pool>_gex and <pool>_ab FASTQ sets into one pool with a library row each
+        def lib_types = [gex: 'Gene Expression', ab: 'Antibody Capture']
+        libs_ch = reads_ch
+            .map { fastq_id, fqs ->
+                def m = (fastq_id =~ /^(.+)_(gex|ab)$/)
+                if (!m.matches()) error "Multi mode: FASTQ id '${fastq_id}' must end in _gex or _ab"
+                tuple(m.group(1), "${fastq_id},FASTQ_DIR,${lib_types[m.group(2)]}".toString(), fqs)
+            }
+            .groupTuple()
+            .map { pool, lib_rows, fqs -> tuple(pool, fqs.flatten(), lib_rows) }
 
-        CELLRANGER_MULTI(multi_input_ch, transcriptome_ch, probe_set_ch)
+        // -> tuple(pool_id, [fastqs], [library rows], [sample rows])
+        multi_input_ch = libs_ch.join(pool_map_ch, failOnMismatch: true)
+
+        CELLRANGER_MULTI(multi_input_ch, transcriptome_ch, probe_set_ch, feature_ref_ch)
 
         qc_metrics_ch = CELLRANGER_MULTI.out.metrics.mix(CELLRANGER_MULTI.out.html).flatten()
         matrices_ch   = CELLRANGER_MULTI.out.matrices

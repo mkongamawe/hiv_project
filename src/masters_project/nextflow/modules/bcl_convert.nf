@@ -4,11 +4,15 @@
 */
 
 process BCL_CONVERT {
-    tag "$bcl_dir.simple.Name"
+    tag "${bcl_dir.simpleName}"
     label 'process_high'
 
-    publishDir "${params.outdir}/${params.cohort}/fastq_demux", mode: 'copy', pattern: "*.fastq.gz"
-    publishDir "${params.outdir}/${params.cohort}/bcl_reports", mode: 'copy', pattern: "Reports"
+    publishDir "${params.outdir}/${params.cohort}", mode: 'copy',
+        saveAs: { fn ->
+            if (fn.endsWith('.fastq.gz')) return "fastq_demux/${file(fn).name}"
+            if (fn.endsWith('Reports'))   return "bcl_reports/Reports"
+            return null
+        }
 
     input:
     path bcl_dir
@@ -16,10 +20,10 @@ process BCL_CONVERT {
 
     output:
     // Emit only valid FASTQs
-    path "fastq_out/[!Undetermined]*.fastq.gz", emit: fastqs
+    path "fastq_out/**.fastq.gz", emit: fastqs
     // Emit Illumina demultiplexing stats
-    path "fastq_out/Reports"                  , emit: reports
-    path "fastq_out/Logs"                     , emit: logs
+    path "fastq_out/Reports"    , emit: reports
+    path "fastq_out/Logs"       , emit: logs
 
     script:
     """

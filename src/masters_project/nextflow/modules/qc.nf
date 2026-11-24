@@ -38,7 +38,7 @@ process MULTIQC {
     publishDir "${params.outdir}/${params.cohort}/qc/multiqc", mode: 'copy'
 
     input:
-    path qc_files
+    path qc_files, stageAs: "?/*"
 
     output:
     path "multiqc_report.html", emit: report
@@ -48,7 +48,6 @@ process MULTIQC {
     """
     multiqc . \\
         --title "${params.cohort} scRNA-seq QC Report" \\
-        --filename multiqc_report.html \\
         --force
     """
 

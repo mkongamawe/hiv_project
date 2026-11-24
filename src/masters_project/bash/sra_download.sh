@@ -117,7 +117,7 @@ while IFS= read -r srr || [[ -n "$srr" ]]; do
         --outdir "$OUTPUT_DIR" \
         --temp "$TMP_DIR" \
         --split-files \
-        --skip-technical \
+        --include-technical \
         --threads "$THREADS" \
         --progress; then
         echo "Successfully extracted FASTQ files for $srr."

@@ -21,22 +21,36 @@ process STAGE_FASTQ {
 
     script:
     """
-    # Sort the files so reads 1 and 2 stay paired
-    sorted_reads=(\$(echo "${reads}" | tr ' ' '\\n' | sort))
+    # Run name from a file name, e.g. SRR123_1.fastq.gz -> SRR123
+    # (must match the regex in input_preprocessing.nf)
+    run_of() { echo "\$1" | sed -E 's/(_[RI]?[123](_001)?)?\\.f(ast)?q\\.gz\$//'; }
 
-    count=1
-    # Loop through the paired files at a time
-    for (( i = 0; i<\${#sorted_reads[@]}; i+=2 )); do
-        r1=\${sorted_reads[i]}
-        r2=\${sorted_reads[i+1]}
+    # Length of the first read in a gzipped FASTQ
+    read_len() { gzip -cd "\$1" 2>/dev/null | awk 'NR==2 { print length(\$0); exit }'; }
 
-        # Format a fake lane number
-        lane=\$(printf "L%03d" \$count)
+    mapfile -t inputs < <(printf '%s\\n' ${reads} | sort)
+    runs=\$(for f in "\${inputs[@]}"; do run_of "\$f"; done | sort -u)
 
-        ln -s \$(realpath \$r1) ${sample_id}_S1_\${lane}_R1_001.fastq.gz
-        ln -s \$(realpath \$r2) ${sample_id}_S1_\${lane}_R2_001.fastq.gz
+    lane=1
+    for run in \$runs; do
+        # This run's files, shortest read first (sort -s keeps _1/_2 order on ties)
+        mapfile -t ordered < <(
+            for f in "\${inputs[@]}"; do
+                [[ "\$(run_of "\$f")" == "\$run" ]] && echo "\$(read_len "\$f") \$f"
+            done | sort -s -n -k1,1 | cut -d' ' -f2-
+        )
 
-        ((count++))
+        case \${#ordered[@]} in
+            2) r1=\${ordered[0]}; r2=\${ordered[1]} ;;
+            3) r1=\${ordered[1]}; r2=\${ordered[2]} ;;   # shortest = index read, skipped
+            *) echo "ERROR: run \$run has \${#ordered[@]} FASTQ file(s): \${ordered[*]}" >&2; exit 1 ;;
+        esac
+
+        L=\$(printf "L%03d" \$lane)
+        echo "\$run -> \$L : R1=\$r1 (\$(read_len "\$r1") bp)  R2=\$r2 (\$(read_len "\$r2") bp)"
+        ln -s "\$(realpath "\$r1")" ${sample_id}_S1_\${L}_R1_001.fastq.gz
+        ln -s "\$(realpath "\$r2")" ${sample_id}_S1_\${L}_R2_001.fastq.gz
+        lane=\$((lane + 1))
     done
     """
 
@@ -72,14 +86,14 @@ process CELLRANGER_COUNT {
         --create-bam=${params.create_bam} \\
         --sample=${sample_id} \\
         --localcores=${task.cpus} \\
-        --localmem=${task.memory.toGiga()}
+        --localmem=${task.memory.toGiga() - 4}
     """
 
     stub:
     """
-    mkdir -p ${sample_id}/outs/filtered_feature_bc_matrix
-    touch ${sample_id}/outs/web_summary.html
-    touch ${sample_id}/outs/dummy_data.txt
+   mkdir -p ${sample_id}/outs/filtered_feature_bc_matrix
+   touch ${sample_id}/outs/web_summary.html
+   touch ${sample_id}/outs/metrics_summary.csv
     """
 }
 
@@ -87,7 +101,7 @@ process CELLRANGER_MULTI {
     tag "$pool_id"
     label 'process_high'
 
-    publishDir "${params.outdir}/{params.cohort}/cellranger_multi", mode: 'copy'
+    publishDir "${params.outdir}/${params.cohort}/cellranger_multi", mode: 'copy'
 
     input:
     tuple val(pool_id), path(fastqs), val(sample_rows)

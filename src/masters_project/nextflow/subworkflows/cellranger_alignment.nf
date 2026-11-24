@@ -21,7 +21,7 @@ workflow CELLRANGER_ALIGNMENT {
         CELLRANGER_COUNT(reads_ch, transcriptome_ch)
 
         qc_metrics_ch = CELLRANGER_COUNT.out.metrics.mix(CELLRANGER_COUNT.out.html)
-        metrices_ch   = CELLRANGER_COUNT.out.matrix
+        matrices_ch   = CELLRANGER_COUNT.out.matrix
     
     } else if (mode == 'multi') {
 
@@ -30,13 +30,13 @@ workflow CELLRANGER_ALIGNMENT {
             .fromPath(multi_samples, checkIfExists: true)
             .splitCsv(header: true)
             .map { row -> 
-                def sample_line = "${row.sample_id}, ${row.probe_barcode_ids}"
+                def sample_line = "${row.sample_id.trim()},${row.probe_barcode_ids.trim()}"
                 tuple(row.pool_id, sample_line)
             }
             .groupTuple() // -> tuple(pool_id, ["Sample1,BC001", "Sample2,BC002", ...])
 
         // Join the FASTQ files for each pool_id
-        multi_input_ch = reads_ch.join(pool_map_ch)
+        multi_input_ch = reads_ch.join(pool_map_ch, failOnMismatch: true)
 
         CELLRANGER_MULTI(multi_input_ch, transcriptome_ch, probe_set_ch)
 

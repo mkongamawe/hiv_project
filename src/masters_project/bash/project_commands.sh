@@ -27,3 +27,16 @@ nextflow run src/masters_project/nextflow/main.nf -profile hpc \
   --transcriptome /path/to/refdata-gex-GRCh38-2024-A \
   --outdir $BASE/results \
   -work-dir $BASE/work
+
+# To run the pipeline for the count mode of cellranger
+BASE=/scratch/cmwagwabi/ucsd_cohort
+
+nextflow run src/masters_project/nextflow/main.nf -profile hpc \
+  --mode count \
+  --cohort ucsd_cohort \
+  --reads "$BASE/fastq/*.fastq.gz" \
+  --metadata data/ucsd_cohort/metadata/SraRunTable.csv \
+  --transcriptome data/ucsd_cohort/references/refdata-gex-GRCh38-2024-A \
+  --outdir $BASE/results \
+  -work-dir $BASE/work \
+  -resume

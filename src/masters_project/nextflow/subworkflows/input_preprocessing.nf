@@ -36,8 +36,9 @@ workflow INPUT_PREPROCESSING {
     }
 
     // 2. Use regex to check if the naming convention is appropriate for cellranger
-    // Pattern: <SampleName>_S<SampleNum>_L<LaneNum>_<R1/R2/I1/I2>_001.fastq.gz
-    def illumina_regex = ~/^(.+)_S\d+_L\d{3}_[RI][123]_001\.f(ast)?q\.gz$/
+    // Pattern: <SampleName>_S<SampleNum>_L<LaneNum>_<R1/R2/I1/I2>_<chunk>.fastq.gz
+    // The chunk is usually 001, but large runs are split into 001, 002, 003, ...
+    def illumina_regex = ~/^(.+)_S\d+_L\d{3}_[RI][123]_\d{3}\.f(ast)?q\.gz$/
 
     branched_fastqs = raw_fastqs_ch.branch { file -> 
         compliant: file.name ==~ illumina_regex

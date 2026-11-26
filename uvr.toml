@@ -3,6 +3,9 @@ name = "masters_project"
 r_version = ">=4.5.3"
 
 [dependencies]
+Seurat = "*"
+SeuratObject = "*"
+SoupX = "*"
 dplyr = "*"
 ggplot2 = "*"
 ggtext = "*"
@@ -11,4 +14,16 @@ gtsummary = "*"
 jgd = "*"
 jsonlite = "*"
 languageserver = "*"
+optparse = "*"
+patchwork = "*"
 survival = "*"
+tidyverse = "*"
+
+[dependencies.SingleCellExperiment]
+bioc = true
+
+[dependencies.decontX]
+bioc = true
+
+[dependencies.scDblFinder]
+bioc = true

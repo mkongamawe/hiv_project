@@ -6,7 +6,18 @@ export PATH="$HOME/miniforge3/envs/r_env/bin:$HOME/.local/bin:$HOME/.cargo/bin:/
 
 # Must be set BEFORE `uvr activate`: without it uvr puts the whole conda
 # lib/ folder on DYLD_LIBRARY_PATH, whose libiconv breaks xml2/ggtext.
-export R_HOME="$HOME/miniforge3/envs/r_env/lib/R"
+# Keep an R_HOME that already points at a real R (e.g. set by an HPC module);
+# otherwise ask the first R on PATH where it lives, so this works on both the
+# Mac (miniforge r_env) and the server.
+if [ -z "${R_HOME:-}" ] || [ ! -x "$R_HOME/bin/R" ]; then
+    unset R_HOME
+    R_HOME="$(R RHOME 2>/dev/null)"
+    if [ -z "$R_HOME" ] || [ ! -x "$R_HOME/bin/R" ]; then
+        echo "Could not find R: load your R module or conda env first (R not on PATH)" >&2
+        exit 1
+    fi
+fi
+export R_HOME
 
 # Ensure a UTF-8 locale so characters like "µ" in scripts are read correctly.
 export LANG="${LANG:-en_US.UTF-8}"

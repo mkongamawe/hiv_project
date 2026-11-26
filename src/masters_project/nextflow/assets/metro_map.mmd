@@ -1,0 +1,51 @@
+%%metro title: scRNA-seq Cell Ranger pipeline
+%%metro line: count | Count: SRA FASTQs | #2E7D32
+%%metro line: bcl | BCL run folder | #EF6C00
+%%metro line: multi | Multi: Flex v2 FASTQs | #1565C0
+%%metro legend: bl
+
+graph LR
+    subgraph sra_in [SRA input]
+        sra[SRA FASTQs]
+        group[Group runs by BioSample]
+        stage[STAGE_FASTQ]
+        sra -->|count| group
+        group -->|count| stage
+    end
+
+    subgraph demux [BCL demultiplexing]
+        bcl[BCL folder]
+        bclconv[BCL_CONVERT]
+        undet[Drop Undetermined]
+        bcl -->|bcl| bclconv
+        bclconv -->|bcl| undet
+    end
+
+    subgraph flex_in [Flex input]
+        flex[Flex FASTQs]
+        merge[Merge gex + ab per pool]
+        flex -->|multi| merge
+    end
+
+    subgraph raw_qc [Read QC]
+        fastqc[FASTQC]
+    end
+
+    subgraph align [Cell Ranger]
+        crcount[CELLRANGER_COUNT]
+        crmulti[CELLRANGER_MULTI]
+    end
+
+    subgraph report [Report]
+        multiqc[MULTIQC]
+    end
+
+    stage -->|count| fastqc
+    undet -->|bcl| fastqc
+    merge -->|multi| fastqc
+
+    fastqc -->|count,bcl| crcount
+    fastqc -->|multi| crmulti
+
+    crcount -->|count,bcl| multiqc
+    crmulti -->|multi| multiqc

@@ -13,10 +13,10 @@ It supports two Cell Ranger modes:
 
 ![Pipeline metro map](docs/images/metro_map.svg)
 
-The metro map is drawn with [nf-metro](https://github.com/seqeralabs/nf-metro) from [assets/metro_map.mmd](assets/metro_map.mmd). After editing that file, re-render it from this folder:
+The metro map is drawn with [nf-metro](https://github.com/seqeralabs/nf-metro) from [assets/metro_map.mmd](assets/metro_map.mmd).
 
 ```bash
-uv tool install nf-metro    # once
+uv tool install nf-metro 
 nf-metro render assets/metro_map.mmd --animate --embed-font -o docs/images/metro_map.svg
 ```
 

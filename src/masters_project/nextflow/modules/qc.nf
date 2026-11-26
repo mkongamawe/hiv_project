@@ -41,8 +41,10 @@ process MULTIQC {
     path qc_files, stageAs: "?/*"
 
     output:
-    path "multiqc_report.html", emit: report
-    path "multiqc_data"       , emit: data
+    // With --title, MultiQC prefixes the file names with the title
+    // (e.g. <title>_multiqc_report.html), so match any prefix
+    path "*multiqc_report.html", emit: report
+    path "*_data"              , emit: data
 
     script:
     """

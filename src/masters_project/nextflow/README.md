@@ -233,7 +233,7 @@ pipeline_info/        # Nextflow timeline, report, trace and DAG
 The filtered count matrices for downstream analysis are at:
 
 - **count mode:** `cellranger/<sample>/outs/filtered_feature_bc_matrix/`
-- **multi mode:** `cellranger_multi/<pool>/outs/per_sample_outs/<sample>/count/sample_filtered_feature_bc_matrix/`
+- **multi mode:** `cellranger_multi/<pool>/outs/per_sample_outs/<sample>/sample_filtered_feature_bc_matrix/`
 
 ## Profiles, resources and error handling
 

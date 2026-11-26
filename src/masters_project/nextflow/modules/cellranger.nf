@@ -113,7 +113,7 @@ process CELLRANGER_MULTI {
     path "${pool_id}/outs/*"                                                        , emit: outs
     path "${pool_id}/outs/per_sample_outs/*/web_summary.html"                       , emit: html
     path "${pool_id}/outs/per_sample_outs/*/metrics_summary.csv"                    , emit: metrics
-    path "${pool_id}/outs/per_sample_outs/*/count/sample_filtered_feature_bc_matrix", emit: matrices
+    path "${pool_id}/outs/per_sample_outs/*/sample_filtered_feature_bc_matrix"      , emit: matrices
 
     script:
     def samples_block   = sample_rows.join('\n')
@@ -145,7 +145,7 @@ EOF
 
     stub:
     """
-    mkdir -p ${pool_id}/outs/per_sample_outs/Sample1/count/sample_filtered_feature_bc_matrix
+    mkdir -p ${pool_id}/outs/per_sample_outs/Sample1/sample_filtered_feature_bc_matrix
     touch ${pool_id}/outs/per_sample_outs/Sample1/web_summary.html
     touch ${pool_id}/outs/per_sample_outs/Sample1/metrics_summary.csv
     """

@@ -13,6 +13,8 @@ It supports two Cell Ranger modes:
 
 ![Pipeline metro map](docs/images/metro_map.svg)
 
+> **Planned route:** the blue `multi` line through the "SRA FASTQs" box is a planned feature, not yet developed. Today `multi` mode only accepts BCL output or FASTQs already in Illumina naming. See [Flex data from SRA (planned)](#flex-data-from-sra-planned).
+
 The metro map is drawn with [nf-metro](https://github.com/seqeralabs/nf-metro) from [assets/metro_map.mmd](assets/metro_map.mmd).
 
 ```bash
@@ -162,6 +164,12 @@ Copy the barcode IDs from the `[samples]` section of the 10x config that came wi
 
 - `--probe_set` (required): must be the probe set the data was generated with.
 - `--feature_ref`: required whenever there is an `_ab` library. Use the feature reference supplied by 10x; Flex uses a different read pattern from standard TotalSeq-C 3′/5′ assays, so don't build your own. If you open it in Excel, re-check it before use, because Excel can corrupt the IDs.
+
+#### Flex data from SRA (planned)
+
+Flex datasets may appear on SRA in future, so the metro map shows `multi` mode starting from SRA FASTQs. **This route is not developed yet.** Running `--mode multi` on SRA downloads currently stops with `FASTQ id '...' must end in _gex or _ab`. The reason is that `STAGE_FASTQ` renames SRA runs to their BioSample ID, which carries no library type.
+
+To support it, the SRA metadata would need to say which runs are Gene Expression and which are Antibody Capture. `STAGE_FASTQ` would then name each staged sample `<pool>_gex` or `<pool>_ab`, so the existing `multi` steps can pick them up unchanged.
 
 ## Parameters
 

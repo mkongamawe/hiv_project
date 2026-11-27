@@ -28,4 +28,11 @@ cd "$(dirname "$0")" || exit 1
 activate="$(uvr activate --emit sh)" || { echo "uvr activate failed" >&2; exit 1; }
 eval "$activate"
 
-exec arf "$@"
+# arf ignores the R_HOME variable: by default it uses rig's default R if rig
+# is installed, else the first R on PATH (on the server that picked R 4.3.3).
+# Pass the R chosen above explicitly, unless the caller picked one themselves
+# (these flags are mutually exclusive in arf).
+case " $* " in
+    *" --r-home"*|*" --with-r-version"*|*" --r-provider"*) exec arf "$@" ;;
+    *) exec arf --r-home "$R_HOME" "$@" ;;
+esac
